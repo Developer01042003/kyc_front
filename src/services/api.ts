@@ -17,9 +17,9 @@ api.interceptors.request.use((config) => {
   }
   
   // Add token for all other routes
-  const token = localStorage.getItem('access');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+   const accessToken = localStorage.getItem('access');  // Changed from 'token' to 'access'
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
