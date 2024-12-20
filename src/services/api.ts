@@ -49,7 +49,7 @@ export const processLiveness = async (sessionId: string, frames: string[]) => {
 
 export const checkLiveness = async (sessionId: string) => {
   try {
-    const response = await api.post('/kyc/kyc/check-liveness/', {
+    const response = await api.post('/kyc/kyc/liveness-status/', {
       sessionId
     });
     return response.data;
