@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 const API_URL = 'https://kyc-back-rmgs.onrender.com';
 
@@ -8,6 +8,31 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Interfaces for type safety
+interface LoginData {
+  email: string;
+  password: string;
+}
+
+interface SignupData {
+  username: string;
+  email: string;
+  password: string;
+  full_name: string;
+  whatsapp: string;
+  gender: string;
+  address: string;
+  country: string;
+}
+
+interface LivenessResponse {
+  status: string;
+  sessionId?: string;
+  isLive?: boolean;
+  confidence?: number;
+  message?: string;
+}
 
 // Modified interceptor to only add token for protected routes
 api.interceptors.request.use((config) => {
@@ -22,19 +47,60 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
-export const startLivenessSession = async () => {
+// Error handler
+const handleApiError = (error: AxiosError) => {
+  if (error.response) {
+    // The request was made and the server responded with a status code
+    console.error('API Error Response:', {
+      status: error.response.status,
+      data: error.response.data,
+      headers: error.response.headers
+    });
+    
+    // Specific error handling based on status
+    switch (error.response.status) {
+      case 401:
+        // Unauthorized - potentially trigger logout or token refresh
+        localStorage.removeItem('access');
+        localStorage.removeItem('refresh');
+        window.location.href = '/login';
+        break;
+      case 403:
+        console.error('Forbidden: You do not have permission');
+        break;
+      case 404:
+        console.error('Not Found: The requested resource does not exist');
+        break;
+      case 500:
+        console.error('Server Error: Please try again later');
+        break;
+    }
+  } else if (error.request) {
+    // The request was made but no response was received
+    console.error('No response received:', error.request);
+  } else {
+    // Something happened in setting up the request
+    console.error('Error setting up request:', error.message);
+  }
+  
+  throw error;
+};
+
+export const startLivenessSession = async (): Promise<LivenessResponse> => {
   try {
     const response = await api.post('/kyc/kyc/start-liveness-session/', {});
     return response.data;
   } catch (error) {
-    console.error('Error starting liveness session:', error);
+    handleApiError(error as AxiosError);
     throw error;
   }
 };
 
-export const processLiveness = async (sessionId: string, frames: string[]) => {
+export const processLiveness = async (sessionId: string, frames: string[]): Promise<LivenessResponse> => {
   try {
     const response = await api.post('/kyc/kyc/process-liveness/', {
       sessionId,
@@ -42,40 +108,46 @@ export const processLiveness = async (sessionId: string, frames: string[]) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error processing liveness:', error);
+    handleApiError(error as AxiosError);
     throw error;
   }
 };
 
-export const checkLiveness = async (sessionId: string) => {
+export const checkLiveness = async (sessionId: string, frames: string[]): Promise<LivenessResponse> => {
   try {
-    const response = await api.post('/kyc/kyc/liveness-status/', {
-      sessionId
+    const response = await api.post('/kyc/kyc/check-liveness/', {
+      sessionId,
+      frames
     });
     return response.data;
   } catch (error) {
-    console.error('Error checking liveness:', error);
+    handleApiError(error as AxiosError);
     throw error;
   }
 };
 
-
-
-export const signup = async (data: any) => {
-  const response = await api.post('/auth/signup/', data);
-  return response.data;
+export const signup = async (data: SignupData) => {
+  try {
+    const response = await api.post('/auth/signup/', data);
+    return response.data;
+  } catch (error) {
+    handleApiError(error as AxiosError);
+    throw error;
+  }
 };
 
-export const login = async (data: any) => {
+export const login = async (data: LoginData) => {
   try {
     const loginResponse = await api.post('/auth/login/', data);
+    
     if (loginResponse.data.access) {
       localStorage.setItem('access', loginResponse.data.access);
       localStorage.setItem('refresh', loginResponse.data.refresh);
     }
+    
     return loginResponse.data;
   } catch (error) {
-    console.error('Login error:', error);
+    handleApiError(error as AxiosError);
     throw error;
   }
 };
@@ -100,7 +172,17 @@ export const submitKYC = async (imageSrc: string) => {
     });
     return kycResponse.data;
   } catch (error) {
-    console.error('KYC submission error:', error);
+    handleApiError(error as AxiosError);
+    throw error;
+  }
+};
+
+export const getLivenessStatus = async () => {
+  try {
+    const response = await api.get('/kyc/kyc/liveness-status/');
+    return response.data;
+  } catch (error) {
+    handleApiError(error as AxiosError);
     throw error;
   }
 };
