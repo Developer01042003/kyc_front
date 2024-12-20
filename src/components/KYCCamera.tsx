@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { startLivenessSession, checkLiveness } from '../services/api';
+import { startLivenessSession, processLiveness } from '../services/api';
 import { toast } from 'react-hot-toast';
 
 interface KYCCameraProps {
@@ -10,7 +10,6 @@ interface KYCCameraProps {
 
 const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
   const webcamRef = useRef<Webcam>(null);
-  const captureIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [sessionId, setSessionId] = useState<string>('');
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [captureStatus, setCaptureStatus] = useState<'idle' | 'capturing' | 'processing' | 'success' | 'error'>('idle');
@@ -45,52 +44,60 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
     return frames;
   }, []);
 
-  const startAutomaticCapture = useCallback(() => {
-    // Stop any existing interval
-    if (captureIntervalRef.current) {
-      clearInterval(captureIntervalRef.current);
-    }
+  const checkLivenessAndCapture = useCallback(async (frames: string[]) => {
+    try {
+      // Use processLiveness instead of checkLiveness
+      const livenessResult = await processLiveness(sessionId, frames);
+      
+      console.log('Liveness Result:', livenessResult);
 
-    // Start automatic capture
-    captureIntervalRef.current = setInterval(async () => {
-      try {
-        setCaptureStatus('capturing');
-        const frames = await captureFrames();
-        
-        setCaptureStatus('processing');
-        const livenessResult = await checkLiveness(sessionId, frames);
-        
-        if (livenessResult.isLive && livenessResult.confidence > 0.90) {
-          // Stop the interval
-          if (captureIntervalRef.current) {
-            clearInterval(captureIntervalRef.current);
-          }
-
-          const bestFrame = frames[Math.floor(frames.length / 2)];
-          setCaptureStatus('success');
-          onCapture(bestFrame);
-          toast.success('Photo captured successfully!');
-        }
-      } catch (error) {
-        console.error('Automatic capture error:', error);
+      // Adjust the condition based on your backend response
+      if (livenessResult.status === 'success' && livenessResult.isLive) {
+        const bestFrame = frames[Math.floor(frames.length / 2)];
+        setCaptureStatus('success');
+        onCapture(bestFrame);
+        toast.success('Photo captured successfully!');
+        return true;
+      } else {
         setCaptureStatus('error');
-        toast.error('Failed to capture photo. Please try again.');
+        toast.error('Liveness check failed. Please try again.');
+        return false;
       }
-    }, 3000); // Check every 3 seconds
-  }, [captureFrames, sessionId, onCapture]);
+    } catch (error) {
+      console.error('Liveness check error:', error);
+      setCaptureStatus('error');
+      toast.error('Failed to verify liveness. Please try again.');
+      return false;
+    }
+  }, [sessionId, onCapture]);
+
+  const startAutomaticCapture = useCallback(async () => {
+    try {
+      setCaptureStatus('capturing');
+      const frames = await captureFrames();
+      
+      setCaptureStatus('processing');
+      const livenessVerified = await checkLivenessAndCapture(frames);
+      
+      if (!livenessVerified) {
+        // If liveness check fails, reset and try again
+        setTimeout(startAutomaticCapture, 2000);
+      }
+    } catch (error) {
+      console.error('Automatic capture error:', error);
+      setCaptureStatus('error');
+      toast.error('Capture process failed. Please try again.');
+      
+      // Retry after a short delay
+      setTimeout(startAutomaticCapture, 2000);
+    }
+  }, [captureFrames, checkLivenessAndCapture]);
 
   // Start automatic capture when camera is ready and session is initialized
   useEffect(() => {
     if (isCameraReady && sessionId) {
       startAutomaticCapture();
     }
-
-    // Cleanup interval on unmount
-    return () => {
-      if (captureIntervalRef.current) {
-        clearInterval(captureIntervalRef.current);
-      }
-    };
   }, [isCameraReady, sessionId, startAutomaticCapture]);
 
   return (
