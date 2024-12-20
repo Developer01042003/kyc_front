@@ -12,7 +12,7 @@ const api = axios.create({
 // Modified interceptor to only add token for protected routes
 api.interceptors.request.use((config) => {
   // Skip adding token for login and signup routes
-  if (config.url && (config.url.includes('/auth/login/') || config.url.includes('/auth/signup/'))) {
+  if (config.url && (config.url.includes('auth/login/') || config.url.includes('auth/signup/'))) {
     return config;
   }
   
@@ -81,7 +81,7 @@ export const submitKYC = async (imageSrc: string) => {
       fileType: file.type
     });
 
-    const response = await api.post('/kyc/', formData, {
+    const response = await api.post('kyc/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
