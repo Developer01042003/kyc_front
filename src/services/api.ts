@@ -50,24 +50,26 @@ export const login = async (data: LoginData) => {
 export const submitKYC = async (file: File) => {
   try {
     const formData = new FormData();
-    formData.append('selfie', file);
+    formData.append('selfie', file);  // Make sure the key matches backend expectation
 
-    const accessToken = localStorage.getItem('access');  // Changed from 'token' to 'access'
-    console.log('Using access token for KYC:', accessToken);
-
-    if (!accessToken) {
-      throw new Error('No authentication token found');
-    }
+    const accessToken = localStorage.getItem('access');
+    console.log('File being sent:', file);  // Debug log
+    console.log('FormData contents:', Array.from(formData.entries())); // Debug log
 
     const response = await axios.post(`${API_URL}kyc/`, formData, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,  // Using accessToken instead of token
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'multipart/form-data',
+        'Accept': 'application/json',
       }
     });
     return response.data;
-  } catch (error) {
-    console.error('KYC submission error:', error);
+  } catch (error: any) {
+    console.error('KYC Error Details:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
