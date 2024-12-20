@@ -6,14 +6,23 @@ import { submitKYC } from '../services/api';
 
 const Dashboard = () => {
   const [kycStep, setKycStep] = useState<'initial' | 'camera' | 'submitted'>('initial');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleCaptureImage = async (imageSrc: string) => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
     try {
+      console.log('Processing captured image...');
       await submitKYC(imageSrc);
       setKycStep('submitted');
       toast.success('KYC submitted successfully! Check your email for verification.');
-    } catch (error) {
-      toast.error('Failed to submit KYC. Please try again.');
+    } catch (error: any) {
+      console.error('KYC submission failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to submit KYC. Please try again.');
+      setKycStep('camera'); // Stay on camera to allow retry
+    } finally {
+      setIsProcessing(false);
     }
   };
 
