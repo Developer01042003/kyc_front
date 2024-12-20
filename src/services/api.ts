@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://kyc-back-rmgs.onrender.com/'; // Replace with your actual API URL
+const API_URL = 'https://kyc-back-rmgs.onrender.com/';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -9,7 +9,14 @@ const api = axios.create({
   },
 });
 
+// Modified interceptor to only add token for protected routes
 api.interceptors.request.use((config) => {
+  // Skip adding token for login and signup routes
+  if (config.url && (config.url.includes('/auth/login/') || config.url.includes('/auth/signup/'))) {
+    return config;
+  }
+  
+  // Add token for all other routes
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
