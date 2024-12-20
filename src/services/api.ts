@@ -32,6 +32,7 @@ interface LivenessResponse {
   isLive?: boolean;
   confidence?: number;
   message?: string;
+  selfieUrl?: string;
 }
 
 // Modified interceptor to only add token for protected routes
@@ -92,23 +93,10 @@ const handleApiError = (error: AxiosError) => {
 
 export const startLivenessSession = async (): Promise<LivenessResponse> => {
   try {
-    const response = await api.post('/kyc/kyc/start-liveness-session/', {});
+    const response = await api.post('/kyc/kyc/start-liveness-session/');
     return response.data;
   } catch (error) {
-    handleApiError(error as AxiosError);
-    throw error;
-  }
-};
-
-export const processLiveness = async (sessionId: string, frames: string[]): Promise<LivenessResponse> => {
-  try {
-    const response = await api.post('/kyc/kyc/process-liveness/', {
-      sessionId,
-      frames
-    });
-    return response.data;
-  } catch (error) {
-    handleApiError(error as AxiosError);
+    console.error('Error starting liveness session:', error);
     throw error;
   }
 };
@@ -121,7 +109,20 @@ export const checkLiveness = async (sessionId: string, frames: string[]): Promis
     });
     return response.data;
   } catch (error) {
-    handleApiError(error as AxiosError);
+    console.error('Error checking liveness:', error);
+    throw error;
+  }
+};
+
+export const processLiveness = async (sessionId: string, frames: string[]): Promise<LivenessResponse> => {
+  try {
+    const response = await api.post('/kyc/kyc/process-liveness/', {
+      sessionId,
+      frames
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error processing liveness:', error);
     throw error;
   }
 };
