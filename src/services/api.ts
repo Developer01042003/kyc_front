@@ -24,9 +24,87 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export const signup = async (data: any) => {
+  const response = await api.post('auth/signup/', data);
+  return response.data;
+};
+
+export const login = async (data: any) => {
+  try {
+    const response = await api.post('auth/login/', data);
+    console.log('Login Response:', response.data);
+
+    if (response.data.access) {
+      localStorage.setItem('access', response.data.access);
+      localStorage.setItem('refresh', response.data.refresh);
+      console.log('Saved access token:', localStorage.getItem('access'));
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+};
+
+export const submitKYC = async (imageSrc: string) => {
+  try {
+    // Remove data:image/jpeg;base64, prefix if present
+    const base64Data = imageSrc.split(',')[1] || imageSrc;
+    
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Data);
+    const byteArrays = [];
+    
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    
+    const blob = new Blob(byteArrays, { type: 'image/jpeg' });
+    const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
+
+    // Create FormData
+    const formData = new FormData();
+    formData.append('selfie', file);
+
+    // Log for debugging
+    console.log('Sending KYC image:', {
+      fileSize: file.size,
+      fileType: file.type
+    });
+
+    const response = await api.post('kyc/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
+
+    console.log('KYC Response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('KYC Error:', {
+      message: error.message,
+      response: error.response?.data
+    });
+    throw error;
+  }
+};
+
 export const startLivenessSession = async () => {
   try {
-    const response = await api.post('kyc/start-liveness-session/', {});
+    const response = await api.post('/kyc/kyc/start-liveness-session/', {}, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access')}`,
+        'Content-Type': 'application/json'
+      }
+    });
     return response.data;
   } catch (error) {
     console.error('Error starting liveness session:', error);
@@ -36,8 +114,13 @@ export const startLivenessSession = async () => {
 
 export const checkLiveness = async (sessionId: string) => {
   try {
-    const response = await api.post('kyc/check-liveness/', {
+    const response = await api.post('/kyc/kyc/check-liveness/', {
       sessionId
+    }, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access')}`,
+        'Content-Type': 'application/json'
+      }
     });
     return response.data;
   } catch (error) {
@@ -45,79 +128,5 @@ export const checkLiveness = async (sessionId: string) => {
     throw error;
   }
 };
-
-export const processLiveness = async (sessionId: string, frames: string[]) => {
-  try {
-    const response = await api.post('kyc/process-liveness/', {
-      sessionId,
-      frames
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error processing liveness:', error);
-    throw error;
-  }
-};
-
-export const signup = async (data: SignupData) => {
-  const response = await api.post('auth/signup/', data);
-  return response.data;
-};
-
-export const login = async (data: LoginData) => {
-  try {
-    const loginResponse = await api.post('auth/login/', data); // Changed variable name
-    if (loginResponse.data.access) {
-      localStorage.setItem('access', loginResponse.data.access);
-      localStorage.setItem('refresh', loginResponse.data.refresh);
-    }
-    return loginResponse.data;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-};
-
-export const submitKYC = async (imageSrc: string) => {
-  try {
-    // Convert base64/dataURL to blob
-    const fetchResponse = await fetch(imageSrc); // Changed variable name
-    const blob = await fetchResponse.blob();
-    
-    // Create file from blob
-    const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
-    
-    // Create FormData
-    const formData = new FormData();
-    formData.append('selfie', file);
-
-    const kycResponse = await api.post('/kyc/', formData, { // Changed variable name
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      }
-    });
-    return kycResponse.data;
-  } catch (error) {
-    console.error('KYC submission error:', error);
-    throw error;
-  }
-};
-
-// Types
-interface SignupData {
-  username: string;
-  email: string;
-  password: string;
-  full_name: string;
-  whatsapp: string;
-  gender: string;
-  address: string;
-  country: string;
-}
-
-interface LoginData {
-  email: string;
-  password: string;
-}
 
 export default api;
