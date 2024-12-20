@@ -66,12 +66,12 @@ export const signup = async (data: SignupData) => {
 
 export const login = async (data: LoginData) => {
   try {
-    const response = await api.post('auth/login/', data);
-    if (response.data.access) {
-      localStorage.setItem('access', response.data.access);
-      localStorage.setItem('refresh', response.data.refresh);
+    const loginResponse = await api.post('auth/login/', data); // Changed variable name
+    if (loginResponse.data.access) {
+      localStorage.setItem('access', loginResponse.data.access);
+      localStorage.setItem('refresh', loginResponse.data.refresh);
     }
-    return response.data;
+    return loginResponse.data;
   } catch (error) {
     console.error('Login error:', error);
     throw error;
@@ -81,8 +81,8 @@ export const login = async (data: LoginData) => {
 export const submitKYC = async (imageSrc: string) => {
   try {
     // Convert base64/dataURL to blob
-    const response = await fetch(imageSrc);
-    const blob = await response.blob();
+    const fetchResponse = await fetch(imageSrc); // Changed variable name
+    const blob = await fetchResponse.blob();
     
     // Create file from blob
     const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
@@ -91,12 +91,12 @@ export const submitKYC = async (imageSrc: string) => {
     const formData = new FormData();
     formData.append('selfie', file);
 
-    const response = await api.post('/kyc/', formData, {
+    const kycResponse = await api.post('kyc/', formData, { // Changed variable name
       headers: {
         'Content-Type': 'multipart/form-data',
       }
     });
-    return response.data;
+    return kycResponse.data;
   } catch (error) {
     console.error('KYC submission error:', error);
     throw error;
