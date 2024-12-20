@@ -25,13 +25,13 @@ api.interceptors.request.use((config) => {
 });
 
 export const signup = async (data: SignupData) => {
-  const response = await api.post('/auth/signup/', data);
+  const response = await api.post('auth/signup/', data);
   return response.data;
 };
 
 export const login = async (data: LoginData) => {
   try {
-    const response = await api.post('/auth/login/', data);
+    const response = await api.post('auth/login/', data);
     console.log('Login Response:', response.data);
 
     // Save with the correct key 'access' instead of 'token'
@@ -63,7 +63,7 @@ export const submitKYC = async (imageSrc: string) => {
     // Log for debugging
     console.log('Sending file:', file);
 
-    const response = await api.post('/kyc/', formData, {
+    const response = await api.post('kyc/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
