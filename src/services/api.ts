@@ -25,13 +25,35 @@ api.interceptors.request.use((config) => {
 });
 
 export const startLivenessSession = async () => {
-  try {
-    const response = await api.post('/kyc/kyc/start-liveness-session/', {});
-    return response.data;
-  } catch (error) {
-    console.error('Error starting liveness session:', error);
-    throw error;
+  const possibleEndpoints = [
+    'kyc/start-liveness-session/',
+    '/kyc/start-liveness-session/',
+    'kyc/kyc/start-liveness-session/',
+    '/kyc/kyc/start-liveness-session/'
+  ];
+
+  for (const endpoint of possibleEndpoints) {
+    try {
+      const response = await api.post(endpoint, {}, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log(`Successfully used endpoint: ${endpoint}`);
+      return response.data;
+    } catch (error: any) {
+      console.log(`Failed endpoint: ${endpoint}`);
+      console.error('Endpoint Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+    }
   }
+
+  throw new Error('No valid liveness session endpoint found');
 };
 
 export const checkLiveness = async (sessionId: string) => {
