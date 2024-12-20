@@ -26,9 +26,7 @@ api.interceptors.request.use((config) => {
 
 export const startLivenessSession = async () => {
   const possibleEndpoints = [
-    'kyc/start-liveness-session/',
-    '/kyc/start-liveness-session/',
-    'kyc/kyc/start-liveness-session/',
+    
     '/kyc/kyc/start-liveness-session/'
   ];
 
