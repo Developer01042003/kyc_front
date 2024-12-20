@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { Camera } from 'lucide-react';
-import axios from 'axios';
+import { startLivenessSession, checkLiveness } from '../services/api';
 
 interface KYCCameraProps {
   onCapture: (imageSrc: string) => void;
@@ -14,13 +14,13 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
   const [sessionId, setSessionId] = useState<string>('');
 
   useEffect(() => {
-    startLivenessSession();
+    startSession();
   }, []);
 
-  const startLivenessSession = async () => {
+  const startSession = async () => {
     try {
-      const response = await axios.post('https://kyc-back-rmgs.onrender.com/kyc/start-liveness-session');
-      setSessionId(response.data.sessionId);
+      const response = await startLivenessSession();
+      setSessionId(response.sessionId);
     } catch (error) {
       console.error('Failed to start liveness session:', error);
     }
@@ -40,18 +40,6 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
     return frames;
   };
 
-  const checkLiveness = async (frames: string[]) => {
-    try {
-      const response = await axios.post('https://kyc-back-rmgs.onrender.com/kyc/check-liveness', {
-        sessionId,
-        frames
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error('Liveness check failed');
-    }
-  };
-
   const handleCapture = async () => {
     if (isCapturing) return;
     
@@ -61,7 +49,7 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
       const frames = await captureFrames();
       
       // Perform liveness check
-      const livenessResult = await checkLiveness(frames);
+      const livenessResult = await checkLiveness(sessionId, frames);
       
       if (livenessResult.isLive && livenessResult.confidence > 0.90) {
         // Use the middle frame as the final image for submission
