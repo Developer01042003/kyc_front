@@ -99,10 +99,9 @@ export const submitKYC = async (imageSrc: string) => {
 };
 
 // Adding new liveness detection APIs
-// api.ts
 export const startLivenessSession = async () => {
   try {
-    const response = await api.post('/kyc/kyc/start-liveness-session/', {}, {
+    const response = await api.post('kyc/start-liveness-session/', {}, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('access')}`,
         'Content-Type': 'application/json'
@@ -115,10 +114,11 @@ export const startLivenessSession = async () => {
   }
 };
 
-export const checkLiveness = async (sessionId: string) => {
+export const processLiveness = async (sessionId: string, frames: string[]) => {
   try {
-    const response = await api.post('/kyc/kyc/check-liveness/', {
-      sessionId
+    const response = await api.post('kyc/process-liveness/', {
+      sessionId,
+      frames
     }, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('access')}`,
@@ -127,7 +127,21 @@ export const checkLiveness = async (sessionId: string) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error checking liveness:', error);
+    console.error('Error processing liveness:', error);
+    throw error;
+  }
+};
+
+export const getLivenessStatus = async () => {
+  try {
+    const response = await api.get('kyc/liveness-status/', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access')}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error getting liveness status:', error);
     throw error;
   }
 };
