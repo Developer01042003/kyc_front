@@ -36,7 +36,7 @@ export const login = async (data: LoginData) => {
 
     // Save token using the correct key 'access'
     if (response.data.access) {
-      localStorage.setItem('token', response.data.access); // Save access token
+      localStorage.setItem('token', response.data.refresh); // Save access token
       localStorage.setItem('refresh', response.data.refresh); // Optionally save refresh token
       console.log('Saved token:', localStorage.getItem('token')); // Verify token is saved
     }
