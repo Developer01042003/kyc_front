@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://kyc-back-rmgs.onrender.com/';
+const API_URL = 'https://kyc-back-rmgs.onrender.com';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -12,7 +12,7 @@ const api = axios.create({
 // Modified interceptor to only add token for protected routes
 api.interceptors.request.use((config) => {
   // Skip adding token for login and signup routes
-  if (config.url && (config.url.includes('auth/login/') || config.url.includes('auth/signup/'))) {
+  if (config.url && (config.url.includes('/auth/login/') || config.url.includes('/auth/signup/'))) {
     return config;
   }
   
@@ -26,7 +26,7 @@ api.interceptors.request.use((config) => {
 
 export const startLivenessSession = async () => {
   try {
-    const response = await api.post('kyc/start-liveness-session/', {});
+    const response = await api.post('/kyc/start-liveness-session/', {});
     return response.data;
   } catch (error) {
     console.error('Error starting liveness session:', error);
@@ -36,7 +36,7 @@ export const startLivenessSession = async () => {
 
 export const checkLiveness = async (sessionId: string) => {
   try {
-    const response = await api.post('kyc/check-liveness/', {
+    const response = await api.post('/kyc/check-liveness/', {
       sessionId
     });
     return response.data;
@@ -48,7 +48,7 @@ export const checkLiveness = async (sessionId: string) => {
 
 export const processLiveness = async (sessionId: string, frames: string[]) => {
   try {
-    const response = await api.post('kyc/process-liveness/', {
+    const response = await api.post('/kyc/process-liveness/', {
       sessionId,
       frames
     });
@@ -60,13 +60,13 @@ export const processLiveness = async (sessionId: string, frames: string[]) => {
 };
 
 export const signup = async (data: any) => {
-  const response = await api.post('auth/signup/', data);
+  const response = await api.post('/auth/signup/', data);
   return response.data;
 };
 
 export const login = async (data: any) => {
   try {
-    const loginResponse = await api.post('auth/login/', data);
+    const loginResponse = await api.post('/auth/login/', data);
     if (loginResponse.data.access) {
       localStorage.setItem('access', loginResponse.data.access);
       localStorage.setItem('refresh', loginResponse.data.refresh);
