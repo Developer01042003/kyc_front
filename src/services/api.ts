@@ -26,7 +26,7 @@ api.interceptors.request.use((config) => {
 
 export const startLivenessSession = async () => {
   try {
-    const response = await api.post('/kyc/start-liveness-session/', {});
+    const response = await api.post('/kyc/kyc/start-liveness-session/', {});
     return response.data;
   } catch (error) {
     console.error('Error starting liveness session:', error);
@@ -91,7 +91,7 @@ export const submitKYC = async (imageSrc: string) => {
     const formData = new FormData();
     formData.append('selfie', file);
 
-    const kycResponse = await api.post('/kyc/', formData, {
+    const kycResponse = await api.post('/kyc/kyc/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
