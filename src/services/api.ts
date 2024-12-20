@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
   }
   
   // Add token for all other routes
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('access');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -32,13 +32,13 @@ export const signup = async (data: SignupData) => {
 export const login = async (data: LoginData) => {
   try {
     const response = await api.post('/auth/login/', data);
-    console.log('Login Response:', response.data); // Debug log
+    console.log('Login Response:', response.data);
 
-    // Save token using the correct key 'access'
+    // Save with the correct key 'access' instead of 'token'
     if (response.data.access) {
-      localStorage.setItem('token', response.data.refresh); // Save access token
-      localStorage.setItem('refresh', response.data.refresh); // Optionally save refresh token
-      console.log('Saved token:', localStorage.getItem('token')); // Verify token is saved
+      localStorage.setItem('access', response.data.access);  // Changed from 'token' to 'access'
+      localStorage.setItem('refresh', response.data.refresh);
+      console.log('Saved access token:', localStorage.getItem('access')); // Verify saved token
     }
     return response.data;
   } catch (error) {
@@ -52,25 +52,22 @@ export const submitKYC = async (file: File) => {
     const formData = new FormData();
     formData.append('selfie', file);
 
-    const token = localStorage.getItem('token');
-    console.log('Token being used:', token); // Debug log
+    const accessToken = localStorage.getItem('access');  // Changed from 'token' to 'access'
+    console.log('Using access token for KYC:', accessToken);
 
-    // Log the complete request configuration
-    const config = {
+    if (!accessToken) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await axios.post(`${API_URL}kyc/`, formData, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${accessToken}`,  // Using accessToken instead of token
         'Content-Type': 'multipart/form-data',
       }
-    };
-    console.log('Request config:', config);
-
-    const response = await axios.post(`${API_URL}kyc/`, formData, config);
+    });
     return response.data;
-  } catch (error: any) {
-    console.log('Full error:', error);
-    console.log('Error response:', error.response?.data);
-    console.log('Error status:', error.response?.status);
-    console.log('Error headers:', error.response?.headers);
+  } catch (error) {
+    console.error('KYC submission error:', error);
     throw error;
   }
 };
