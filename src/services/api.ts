@@ -35,27 +35,9 @@ interface LivenessResponse {
   selfieUrl?: string;
 }
 
-// Modified interceptor to only add token for protected routes
-api.interceptors.request.use((config) => {
-  // Skip adding token for login and signup routes
-  if (config.url && (config.url.includes('/auth/login/') || config.url.includes('/auth/signup/'))) {
-    return config;
-  }
-  
-  // Add token for all other routes
-  const accessToken = localStorage.getItem('access');
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
-
 // Error handler
 const handleApiError = (error: AxiosError) => {
   if (error.response) {
-    // The request was made and the server responded with a status code
     console.error('API Error Response:', {
       status: error.response.status,
       data: error.response.data,
@@ -65,7 +47,6 @@ const handleApiError = (error: AxiosError) => {
     // Specific error handling based on status
     switch (error.response.status) {
       case 401:
-        // Unauthorized - potentially trigger logout or token refresh
         localStorage.removeItem('access');
         localStorage.removeItem('refresh');
         window.location.href = '/login';
@@ -81,35 +62,36 @@ const handleApiError = (error: AxiosError) => {
         break;
     }
   } else if (error.request) {
-    // The request was made but no response was received
     console.error('No response received:', error.request);
   } else {
-    // Something happened in setting up the request
     console.error('Error setting up request:', error.message);
   }
   
   throw error;
 };
 
+// Interceptor
+api.interceptors.request.use((config) => {
+  // Skip adding token for login and signup routes
+  if (config.url && (config.url.includes('/auth/login/') || config.url.includes('/auth/signup/'))) {
+    return config;
+  }
+  
+  // Add token for all other routes
+  const accessToken = localStorage.getItem('access');
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+}, (error) => Promise.reject(error));
+
+// Liveness-related API calls
 export const startLivenessSession = async (): Promise<LivenessResponse> => {
   try {
     const response = await api.post('/kyc/kyc/start-liveness-session/');
     return response.data;
   } catch (error) {
-    console.error('Error starting liveness session:', error);
-    throw error;
-  }
-};
-
-export const checkLiveness = async (sessionId: string, frames: string[]): Promise<LivenessResponse> => {
-  try {
-    const response = await api.post('/kyc/kyc/check-liveness/', {
-      sessionId,
-      frames
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error checking liveness:', error);
+    handleApiError(error as AxiosError);
     throw error;
   }
 };
@@ -122,31 +104,18 @@ export const processLiveness = async (sessionId: string, frames: string[]): Prom
     });
     return response.data;
   } catch (error) {
-    console.error('Error processing liveness:', error);
-    throw error;
-  }
-};
-
-export const signup = async (data: SignupData) => {
-  try {
-    const response = await api.post('/auth/signup/', data);
-    return response.data;
-  } catch (error) {
     handleApiError(error as AxiosError);
     throw error;
   }
 };
 
-export const login = async (data: LoginData) => {
+export const checkLiveness = async (sessionId: string, frames: string[]): Promise<LivenessResponse> => {
   try {
-    const loginResponse = await api.post('/auth/login/', data);
-    
-    if (loginResponse.data.access) {
-      localStorage.setItem('access', loginResponse.data.access);
-      localStorage.setItem('refresh', loginResponse.data.refresh);
-    }
-    
-    return loginResponse.data;
+    const response = await api.post('/kyc/kyc/check-liveness/', {
+      sessionId,
+      frames
+    });
+    return response.data;
   } catch (error) {
     handleApiError(error as AxiosError);
     throw error;
@@ -171,7 +140,37 @@ export const submitKYC = async (imageSrc: string) => {
         'Content-Type': 'multipart/form-data',
       }
     });
-    return kycResponse.data;
+    
+    return {
+      ...kycResponse.data,
+      selfieUrl: kycResponse.data.selfie_url || imageSrc
+    };
+  } catch (error) {
+    handleApiError(error as AxiosError);
+    throw error;
+  }
+};
+
+export const signup = async (data: SignupData) => {
+  try {
+    const response = await api.post('/auth/signup/', data);
+    return response.data;
+  } catch (error) {
+    handleApiError(error as AxiosError);
+    throw error;
+  }
+};
+
+export const login = async (data: LoginData) => {
+  try {
+    const loginResponse = await api.post('/auth/login/', data);
+    
+    if (loginResponse.data.access) {
+      localStorage.setItem('access', loginResponse.data.access);
+      localStorage.setItem('refresh', loginResponse.data.refresh);
+    }
+    
+    return loginResponse.data;
   } catch (error) {
     handleApiError(error as AxiosError);
     throw error;
