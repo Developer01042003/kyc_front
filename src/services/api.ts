@@ -17,12 +17,47 @@ api.interceptors.request.use((config) => {
   }
   
   // Add token for all other routes
-   const accessToken = localStorage.getItem('access');  // Changed from 'token' to 'access'
+  const accessToken = localStorage.getItem('access');
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
+
+export const startLivenessSession = async () => {
+  try {
+    const response = await api.post('kyc/start-liveness-session/', {});
+    return response.data;
+  } catch (error) {
+    console.error('Error starting liveness session:', error);
+    throw error;
+  }
+};
+
+export const checkLiveness = async (sessionId: string) => {
+  try {
+    const response = await api.post('kyc/check-liveness/', {
+      sessionId
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error checking liveness:', error);
+    throw error;
+  }
+};
+
+export const processLiveness = async (sessionId: string, frames: string[]) => {
+  try {
+    const response = await api.post('kyc/process-liveness/', {
+      sessionId,
+      frames
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error processing liveness:', error);
+    throw error;
+  }
+};
 
 export const signup = async (data: SignupData) => {
   const response = await api.post('auth/signup/', data);
@@ -32,13 +67,9 @@ export const signup = async (data: SignupData) => {
 export const login = async (data: LoginData) => {
   try {
     const response = await api.post('auth/login/', data);
-    console.log('Login Response:', response.data);
-
-    // Save with the correct key 'access' instead of 'token'
     if (response.data.access) {
-      localStorage.setItem('access', response.data.access);  // Changed from 'token' to 'access'
+      localStorage.setItem('access', response.data.access);
       localStorage.setItem('refresh', response.data.refresh);
-      console.log('Saved access token:', localStorage.getItem('access')); // Verify saved token
     }
     return response.data;
   } catch (error) {
@@ -49,101 +80,44 @@ export const login = async (data: LoginData) => {
 
 export const submitKYC = async (imageSrc: string) => {
   try {
-    // Remove data:image/jpeg;base64, prefix if present
-    const base64Data = imageSrc.split(',')[1] || imageSrc;
+    // Convert base64/dataURL to blob
+    const response = await fetch(imageSrc);
+    const blob = await response.blob();
     
-    // Convert base64 to blob
-    const byteCharacters = atob(base64Data);
-    const byteArrays = [];
-    
-    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-      const slice = byteCharacters.slice(offset, offset + 512);
-      const byteNumbers = new Array(slice.length);
-      
-      for (let i = 0; i < slice.length; i++) {
-        byteNumbers[i] = slice.charCodeAt(i);
-      }
-      
-      const byteArray = new Uint8Array(byteNumbers);
-      byteArrays.push(byteArray);
-    }
-    
-    const blob = new Blob(byteArrays, { type: 'image/jpeg' });
+    // Create file from blob
     const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
-
+    
     // Create FormData
     const formData = new FormData();
     formData.append('selfie', file);
 
-    // Log for debugging
-    console.log('Sending KYC image:', {
-      fileSize: file.size,
-      fileType: file.type
-    });
-
-    const response = await api.post('kyc/', formData, {
+    const response = await api.post('/kyc/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
     });
-
-    console.log('KYC Response:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('KYC Error:', {
-      message: error.message,
-      response: error.response?.data
-    });
-    throw error;
-  }
-};
-
-// Adding new liveness detection APIs
-export const startLivenessSession = async () => {
-  try {
-    const response = await api.post('kyc/start-liveness-session/', {}, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access')}`,
-        'Content-Type': 'application/json'
-      }
-    });
     return response.data;
   } catch (error) {
-    console.error('Error starting liveness session:', error);
+    console.error('KYC submission error:', error);
     throw error;
   }
 };
 
-export const processLiveness = async (sessionId: string, frames: string[]) => {
-  try {
-    const response = await api.post('kyc/process-liveness/', {
-      sessionId,
-      frames
-    }, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access')}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error processing liveness:', error);
-    throw error;
-  }
-};
+// Types
+interface SignupData {
+  username: string;
+  email: string;
+  password: string;
+  full_name: string;
+  whatsapp: string;
+  gender: string;
+  address: string;
+  country: string;
+}
 
-export const getLivenessStatus = async () => {
-  try {
-    const response = await api.get('kyc/liveness-status/', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access')}`
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error getting liveness status:', error);
-    throw error;
-  }
-};
+interface LoginData {
+  email: string;
+  password: string;
+}
 
 export default api;
