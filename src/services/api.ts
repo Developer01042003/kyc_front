@@ -91,7 +91,7 @@ export const submitKYC = async (imageSrc: string) => {
     const formData = new FormData();
     formData.append('selfie', file);
 
-    const kycResponse = await api.post('kyc/', formData, { // Changed variable name
+    const kycResponse = await api.post('/kyc/', formData, { // Changed variable name
       headers: {
         'Content-Type': 'multipart/form-data',
       }
