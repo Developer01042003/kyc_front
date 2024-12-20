@@ -52,17 +52,25 @@ export const submitKYC = async (file: File) => {
     const formData = new FormData();
     formData.append('selfie', file);
 
-    const token = localStorage.getItem('token'); // Keep 'token' if that's what you're using
-    
-    const response = await axios.post(`${API_URL}kyc/`, formData, {
+    const token = localStorage.getItem('token');
+    console.log('Token being used:', token); // Debug log
+
+    // Log the complete request configuration
+    const config = {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'multipart/form-data',
       }
-    });
+    };
+    console.log('Request config:', config);
+
+    const response = await axios.post(`${API_URL}kyc/`, formData, config);
     return response.data;
-  } catch (error) {
-    console.error('KYC submission error:', error);
+  } catch (error: any) {
+    console.log('Full error:', error);
+    console.log('Error response:', error.response?.data);
+    console.log('Error status:', error.response?.status);
+    console.log('Error headers:', error.response?.headers);
     throw error;
   }
 };
