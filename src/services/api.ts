@@ -49,28 +49,51 @@ export const login = async (data: LoginData) => {
 
 export const submitKYC = async (imageSrc: string) => {
   try {
-    // Convert base64/dataURL to blob
-    const response = await fetch(imageSrc);
-    const blob = await response.blob();
+    // Remove data:image/jpeg;base64, prefix if present
+    const base64Data = imageSrc.split(',')[1] || imageSrc;
     
-    // Create file from blob
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Data);
+    const byteArrays = [];
+    
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    
+    const blob = new Blob(byteArrays, { type: 'image/jpeg' });
     const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
-    
+
     // Create FormData
     const formData = new FormData();
     formData.append('selfie', file);
 
     // Log for debugging
-    console.log('Sending file:', file);
+    console.log('Sending KYC image:', {
+      fileSize: file.size,
+      fileType: file.type
+    });
 
-    const response = await api.post('kyc/', formData, {
+    const response = await api.post('/kyc/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
     });
+
+    console.log('KYC Response:', response.data);
     return response.data;
-  } catch (error) {
-    console.error('KYC submission error:', error);
+  } catch (error: any) {
+    console.error('KYC Error:', {
+      message: error.message,
+      response: error.response?.data
+    });
     throw error;
   }
 };
