@@ -19,7 +19,7 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
 
   const startLivenessSession = async () => {
     try {
-      const response = await axios.post('/api/start-liveness-session');
+      const response = await axios.post('https://kyc-back-rmgs.onrender.com/kyc/start-liveness-session');
       setSessionId(response.data.sessionId);
     } catch (error) {
       console.error('Failed to start liveness session:', error);
@@ -42,7 +42,7 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
 
   const checkLiveness = async (frames: string[]) => {
     try {
-      const response = await axios.post('/api/check-liveness', {
+      const response = await axios.post('https://kyc-back-rmgs.onrender.com/kyc/check-liveness', {
         sessionId,
         frames
       });
