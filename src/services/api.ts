@@ -99,9 +99,15 @@ export const submitKYC = async (imageSrc: string) => {
 };
 
 // Adding new liveness detection APIs
+// api.ts
 export const startLivenessSession = async () => {
   try {
-    const response = await api.post('kyc/start-liveness-session/');
+    const response = await api.post('/kyc/kyc/start-liveness-session/', {}, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access')}`,
+        'Content-Type': 'application/json'
+      }
+    });
     return response.data;
   } catch (error) {
     console.error('Error starting liveness session:', error);
@@ -109,11 +115,15 @@ export const startLivenessSession = async () => {
   }
 };
 
-export const checkLiveness = async (sessionId: string, frames: string[]) => {
+export const checkLiveness = async (sessionId: string) => {
   try {
-    const response = await api.post('kyc/check-liveness/', {
-      sessionId,
-      frames
+    const response = await api.post('/kyc/kyc/check-liveness/', {
+      sessionId
+    }, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access')}`,
+        'Content-Type': 'application/json'
+      }
     });
     return response.data;
   } catch (error) {
