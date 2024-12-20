@@ -97,4 +97,29 @@ export const submitKYC = async (imageSrc: string) => {
     throw error;
   }
 };
+
+// Adding new liveness detection APIs
+export const startLivenessSession = async () => {
+  try {
+    const response = await api.post('kyc/start-liveness-session/');
+    return response.data;
+  } catch (error) {
+    console.error('Error starting liveness session:', error);
+    throw error;
+  }
+};
+
+export const checkLiveness = async (sessionId: string, frames: string[]) => {
+  try {
+    const response = await api.post('kyc/check-liveness/', {
+      sessionId,
+      frames
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error checking liveness:', error);
+    throw error;
+  }
+};
+
 export default api;
