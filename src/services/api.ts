@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://127.0.0.1:8000/'; // Replace with your actual API URL
+const API_URL = 'https://kyc-back-rmgs.onrender.com/'; // Replace with your actual API URL
 
 const api = axios.create({
   baseURL: API_URL,
