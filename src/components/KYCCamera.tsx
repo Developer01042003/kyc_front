@@ -1,5 +1,4 @@
-// KYCCamera.tsx
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { startLivenessSession, checkLiveness } from '../services/api';
@@ -11,16 +10,12 @@ interface KYCCameraProps {
 
 const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
   const webcamRef = useRef<Webcam>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
+  const captureIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [sessionId, setSessionId] = useState<string>('');
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [captureStatus, setCaptureStatus] = useState<'idle' | 'capturing' | 'processing' | 'success' | 'error'>('idle');
 
-  useEffect(() => {
-    startSession();
-  }, []);
-
-  const startSession = async () => {
+  const startSession = useCallback(async () => {
     try {
       const response = await startLivenessSession();
       setSessionId(response.sessionId);
@@ -29,11 +24,14 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
       console.error('Failed to start liveness session:', error);
       toast.error('Failed to initialize camera session');
     }
-  };
+  }, []);
 
-  const captureFrames = async (): Promise<string[]> => {
+  useEffect(() => {
+    startSession();
+  }, [startSession]);
+
+  const captureFrames = useCallback(async (): Promise<string[]> => {
     const frames: string[] = [];
-    setCaptureStatus('capturing');
     
     for (let i = 0; i < 5; i++) {
       if (webcamRef.current) {
@@ -45,37 +43,55 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
       await new Promise(resolve => setTimeout(resolve, 200));
     }
     return frames;
-  };
+  }, []);
 
-  const handleCapture = async () => {
-    if (isCapturing) return;
-    
-    setIsCapturing(true);
-    try {
-      const frames = await captureFrames();
-      setCaptureStatus('processing');
-      
-      const livenessResult = await checkLiveness(sessionId, frames);
-      
-      if (livenessResult.isLive && livenessResult.confidence > 0.90) {
-        const bestFrame = frames[Math.floor(frames.length / 2)];
-        setCaptureStatus('success');
-        await onCapture(bestFrame);
-        toast.success('Photo captured successfully!');
-      } else {
-        setCaptureStatus('error');
-        toast.error('Liveness check failed. Please try again.');
-        throw new Error('Liveness check failed or low confidence');
-      }
-    } catch (error) {
-      console.error('Capture error:', error);
-      setCaptureStatus('error');
-      toast.error('Failed to capture photo. Please try again.');
-    } finally {
-      setIsCapturing(false);
-      setTimeout(() => setCaptureStatus('idle'), 2000);
+  const startAutomaticCapture = useCallback(() => {
+    // Stop any existing interval
+    if (captureIntervalRef.current) {
+      clearInterval(captureIntervalRef.current);
     }
-  };
+
+    // Start automatic capture
+    captureIntervalRef.current = setInterval(async () => {
+      try {
+        setCaptureStatus('capturing');
+        const frames = await captureFrames();
+        
+        setCaptureStatus('processing');
+        const livenessResult = await checkLiveness(sessionId, frames);
+        
+        if (livenessResult.isLive && livenessResult.confidence > 0.90) {
+          // Stop the interval
+          if (captureIntervalRef.current) {
+            clearInterval(captureIntervalRef.current);
+          }
+
+          const bestFrame = frames[Math.floor(frames.length / 2)];
+          setCaptureStatus('success');
+          onCapture(bestFrame);
+          toast.success('Photo captured successfully!');
+        }
+      } catch (error) {
+        console.error('Automatic capture error:', error);
+        setCaptureStatus('error');
+        toast.error('Failed to capture photo. Please try again.');
+      }
+    }, 3000); // Check every 3 seconds
+  }, [captureFrames, sessionId, onCapture]);
+
+  // Start automatic capture when camera is ready and session is initialized
+  useEffect(() => {
+    if (isCameraReady && sessionId) {
+      startAutomaticCapture();
+    }
+
+    // Cleanup interval on unmount
+    return () => {
+      if (captureIntervalRef.current) {
+        clearInterval(captureIntervalRef.current);
+      }
+    };
+  }, [isCameraReady, sessionId, startAutomaticCapture]);
 
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
@@ -145,30 +161,8 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
             <li>• Look directly at the camera</li>
             <li>• Remove any sunglasses or face coverings</li>
             <li>• Keep your face centered in the frame</li>
+            <li>• Wait for automatic capture and verification</li>
           </ul>
-        </div>
-
-        {/* Capture Button */}
-        <div className="text-center">
-          <button
-            onClick={handleCapture}
-            disabled={isCapturing || !sessionId || !isCameraReady}
-            className={`
-              inline-flex items-center px-6 py-3 rounded-lg
-              transition-all duration-200 ease-in-out
-              ${isCapturing || !sessionId || !isCameraReady
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 hover:shadow-lg'}
-              text-white font-medium
-            `}
-          >
-            {isCapturing ? (
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            ) : (
-              <Camera className="w-5 h-5 mr-2" />
-            )}
-            {isCapturing ? 'Processing...' : 'Capture & Verify'}
-          </button>
         </div>
       </div>
     </div>
