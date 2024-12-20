@@ -47,29 +47,30 @@ export const login = async (data: LoginData) => {
   }
 };
 
-export const submitKYC = async (file: File) => {
+export const submitKYC = async (imageSrc: string) => {
   try {
+    // Convert base64/dataURL to blob
+    const response = await fetch(imageSrc);
+    const blob = await response.blob();
+    
+    // Create file from blob
+    const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
+    
+    // Create FormData
     const formData = new FormData();
-    formData.append('selfie', file);  // Make sure the key matches backend expectation
+    formData.append('selfie', file);
 
-    const accessToken = localStorage.getItem('access');
-    console.log('File being sent:', file);  // Debug log
-    console.log('FormData contents:', Array.from(formData.entries())); // Debug log
+    // Log for debugging
+    console.log('Sending file:', file);
 
-    const response = await axios.post(`${API_URL}kyc/`, formData, {
+    const response = await api.post('/kyc/', formData, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'multipart/form-data',
-        'Accept': 'application/json',
       }
     });
     return response.data;
-  } catch (error: any) {
-    console.error('KYC Error Details:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
+  } catch (error) {
+    console.error('KYC submission error:', error);
     throw error;
   }
 };
