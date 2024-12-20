@@ -24,6 +24,7 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
     try {
       const response = await startLivenessSession();
       setSessionId(response.sessionId);
+      toast.success('Camera session initialized');
     } catch (error) {
       console.error('Failed to start liveness session:', error);
       toast.error('Failed to initialize camera session');
@@ -51,17 +52,12 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
     
     setIsCapturing(true);
     try {
-      // Capture frames for liveness detection
       const frames = await captureFrames();
-      
-      // Update status to processing
       setCaptureStatus('processing');
       
-      // Perform liveness check
       const livenessResult = await checkLiveness(sessionId, frames);
       
       if (livenessResult.isLive && livenessResult.confidence > 0.90) {
-        // Use the middle frame as the final image for submission
         const bestFrame = frames[Math.floor(frames.length / 2)];
         setCaptureStatus('success');
         await onCapture(bestFrame);
@@ -77,24 +73,13 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
       toast.error('Failed to capture photo. Please try again.');
     } finally {
       setIsCapturing(false);
-      setTimeout(() => setCaptureStatus('idle'), 2000); // Reset status after 2 seconds
+      setTimeout(() => setCaptureStatus('idle'), 2000);
     }
   };
 
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
       <div className="space-y-6">
-        {/* Instructions */}
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <h3 className="text-blue-800 font-semibold mb-2">Instructions:</h3>
-          <ul className="text-blue-700 text-sm space-y-1">
-            <li>• Ensure your face is well-lit and clearly visible</li>
-            <li>• Look directly at the camera</li>
-            <li>• Remove any sunglasses or face coverings</li>
-            <li>• Keep your face centered in the frame</li>
-          </ul>
-        </div>
-
         {/* Camera View */}
         <div className="relative">
           <div className="rounded-xl overflow-hidden shadow-inner bg-gray-100">
@@ -150,6 +135,17 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
               <div className="w-64 h-64 border-2 border-white border-opacity-50 rounded-full"></div>
             </div>
           </div>
+        </div>
+
+        {/* Instructions */}
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h3 className="text-blue-800 font-semibold mb-2">Instructions:</h3>
+          <ul className="text-blue-700 text-sm space-y-1">
+            <li>• Ensure your face is well-lit and clearly visible</li>
+            <li>• Look directly at the camera</li>
+            <li>• Remove any sunglasses or face coverings</li>
+            <li>• Keep your face centered in the frame</li>
+          </ul>
         </div>
 
         {/* Capture Button */}
