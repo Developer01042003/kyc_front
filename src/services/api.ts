@@ -36,7 +36,7 @@ export const startLivenessSession = async () => {
 
 export const checkLiveness = async (sessionId: string) => {
   try {
-    const response = await api.post('/kyc/check-liveness/', {
+    const response = await api.post('/kyc/kyc/check-liveness/', {
       sessionId
     });
     return response.data;
@@ -48,7 +48,7 @@ export const checkLiveness = async (sessionId: string) => {
 
 export const processLiveness = async (sessionId: string, frames: string[]) => {
   try {
-    const response = await api.post('/kyc/process-liveness/', {
+    const response = await api.post('/kyc/kyc/process-liveness/', {
       sessionId,
       frames
     });
@@ -91,7 +91,7 @@ export const submitKYC = async (imageSrc: string) => {
     const formData = new FormData();
     formData.append('selfie', file);
 
-    const kycResponse = await api.post('kyc/', formData, {
+    const kycResponse = await api.post('/kyc/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
