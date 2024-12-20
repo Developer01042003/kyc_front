@@ -1,8 +1,9 @@
 // KYCCamera.tsx
 import React, { useRef, useState, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Camera } from 'lucide-react';
+import { Camera, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { startLivenessSession, checkLiveness } from '../services/api';
+import { toast } from 'react-hot-toast';
 
 interface KYCCameraProps {
   onCapture: (imageSrc: string) => void;
@@ -12,6 +13,8 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
   const webcamRef = useRef<Webcam>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [captureStatus, setCaptureStatus] = useState<'idle' | 'capturing' | 'processing' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     startSession();
@@ -23,11 +26,14 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
       setSessionId(response.sessionId);
     } catch (error) {
       console.error('Failed to start liveness session:', error);
+      toast.error('Failed to initialize camera session');
     }
   };
 
   const captureFrames = async (): Promise<string[]> => {
     const frames: string[] = [];
+    setCaptureStatus('capturing');
+    
     for (let i = 0; i < 5; i++) {
       if (webcamRef.current) {
         const imageSrc = webcamRef.current.getScreenshot();
@@ -48,57 +54,126 @@ const KYCCamera: React.FC<KYCCameraProps> = ({ onCapture }) => {
       // Capture frames for liveness detection
       const frames = await captureFrames();
       
+      // Update status to processing
+      setCaptureStatus('processing');
+      
       // Perform liveness check
       const livenessResult = await checkLiveness(sessionId, frames);
       
       if (livenessResult.isLive && livenessResult.confidence > 0.90) {
         // Use the middle frame as the final image for submission
         const bestFrame = frames[Math.floor(frames.length / 2)];
+        setCaptureStatus('success');
         await onCapture(bestFrame);
+        toast.success('Photo captured successfully!');
       } else {
+        setCaptureStatus('error');
+        toast.error('Liveness check failed. Please try again.');
         throw new Error('Liveness check failed or low confidence');
       }
     } catch (error) {
       console.error('Capture error:', error);
-      throw error;
+      setCaptureStatus('error');
+      toast.error('Failed to capture photo. Please try again.');
     } finally {
       setIsCapturing(false);
+      setTimeout(() => setCaptureStatus('idle'), 2000); // Reset status after 2 seconds
     }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="relative w-full max-w-md mx-auto">
-        <Webcam
-          ref={webcamRef}
-          screenshotFormat="image/jpeg"
-          mirrored={false}
-          className="rounded-lg"
-          videoConstraints={{
-            width: 720,
-            height: 480,
-            facingMode: "user"
-          }}
-        />
-        {isCapturing && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-            <div className="text-white text-lg">Performing Liveness Check...</div>
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+      <div className="space-y-6">
+        {/* Instructions */}
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h3 className="text-blue-800 font-semibold mb-2">Instructions:</h3>
+          <ul className="text-blue-700 text-sm space-y-1">
+            <li>• Ensure your face is well-lit and clearly visible</li>
+            <li>• Look directly at the camera</li>
+            <li>• Remove any sunglasses or face coverings</li>
+            <li>• Keep your face centered in the frame</li>
+          </ul>
+        </div>
+
+        {/* Camera View */}
+        <div className="relative">
+          <div className="rounded-xl overflow-hidden shadow-inner bg-gray-100">
+            <Webcam
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              mirrored={false}
+              className="w-full rounded-xl"
+              videoConstraints={{
+                width: 1280,
+                height: 720,
+                facingMode: "user"
+              }}
+              onUserMedia={() => setIsCameraReady(true)}
+            />
           </div>
-        )}
-      </div>
-      <div className="text-center">
-        <button
-          onClick={handleCapture}
-          disabled={isCapturing || !sessionId}
-          className={`bg-green-600 text-white px-6 py-3 rounded-lg transition-colors ${
-            isCapturing || !sessionId
-              ? 'opacity-50 cursor-not-allowed' 
-              : 'hover:bg-green-700'
-          }`}
-        >
-          <Camera className="inline-block mr-2" />
-          {isCapturing ? 'Processing...' : 'Capture & Verify'}
-        </button>
+
+          {/* Overlay States */}
+          {captureStatus !== 'idle' && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-xl">
+              <div className="text-center space-y-3 p-4 bg-white bg-opacity-90 rounded-lg">
+                {captureStatus === 'capturing' && (
+                  <>
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
+                    <p className="text-blue-800 font-medium">Capturing...</p>
+                  </>
+                )}
+                {captureStatus === 'processing' && (
+                  <>
+                    <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mx-auto" />
+                    <p className="text-yellow-800 font-medium">Processing...</p>
+                  </>
+                )}
+                {captureStatus === 'success' && (
+                  <>
+                    <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto" />
+                    <p className="text-green-800 font-medium">Success!</p>
+                  </>
+                )}
+                {captureStatus === 'error' && (
+                  <>
+                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
+                    <p className="text-red-800 font-medium">Failed. Please try again.</p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Camera Guidelines */}
+          <div className="absolute inset-0 border-4 border-blue-400 border-opacity-50 rounded-xl pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-64 h-64 border-2 border-white border-opacity-50 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Capture Button */}
+        <div className="text-center">
+          <button
+            onClick={handleCapture}
+            disabled={isCapturing || !sessionId || !isCameraReady}
+            className={`
+              inline-flex items-center px-6 py-3 rounded-lg
+              transition-all duration-200 ease-in-out
+              ${isCapturing || !sessionId || !isCameraReady
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700 hover:shadow-lg'}
+              text-white font-medium
+            `}
+          >
+            {isCapturing ? (
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            ) : (
+              <Camera className="w-5 h-5 mr-2" />
+            )}
+            {isCapturing ? 'Processing...' : 'Capture & Verify'}
+          </button>
+        </div>
       </div>
     </div>
   );
