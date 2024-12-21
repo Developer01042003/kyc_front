@@ -6,8 +6,16 @@ import { Amplify } from 'aws-amplify';
 import App from './App.tsx';
 import './index.css';
 
-// Configure AWS Amplify
-Amplify.configure({
+// Log environment variables (for debugging)
+console.log('Environment Variables:', {
+  region: import.meta.env.VITE_AWS_REGION,
+  userPoolId: import.meta.env.VITE_AWS_USER_POOL_ID,
+  clientId: import.meta.env.VITE_AWS_USER_POOL_WEB_CLIENT_ID,
+  apiUrl: import.meta.env.VITE_API_URL
+});
+
+// Configure AWS Amplify with fallbacks
+const awsConfig = {
   Auth: {
     region: import.meta.env.VITE_AWS_REGION || 'us-east-1',
     userPoolId: import.meta.env.VITE_AWS_USER_POOL_ID,
@@ -17,41 +25,34 @@ Amplify.configure({
     endpoints: [
       {
         name: 'api',
-        endpoint: import.meta.env.VITE_API_URL,
+        endpoint: import.meta.env.VITE_API_URL || 'https://kyc-back-rmgs.onrender.com',
         region: import.meta.env.VITE_AWS_REGION || 'us-east-1'
       }
     ]
   }
-});
+};
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-          },
-          success: {
-            iconTheme: {
-              primary: '#4CAF50',
-              secondary: '#fff',
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: '#F44336',
-              secondary: '#fff',
-            },
-          },
-        }}
-      />
-      <App />
-    </BrowserRouter>
-  </StrictMode>
-);
+console.log('AWS Config:', awsConfig);
+
+try {
+  Amplify.configure(awsConfig);
+  console.log('Amplify configured successfully');
+} catch (error) {
+  console.error('Error configuring Amplify:', error);
+}
+
+const root = createRoot(document.getElementById('root')!);
+
+try {
+  root.render(
+    <StrictMode>
+      <BrowserRouter>
+        <Toaster />
+        <App />
+      </BrowserRouter>
+    </StrictMode>
+  );
+  console.log('App rendered successfully');
+} catch (error) {
+  console.error('Error rendering app:', error);
+}
