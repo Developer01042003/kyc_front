@@ -26,14 +26,7 @@ interface SignupData {
   country: string;
 }
 
-interface LivenessResponse {
-  status: string;
-  sessionId?: string;
-  isLive?: boolean;
-  confidence?: number;
-  message?: string;
-  selfieUrl?: string;
-}
+
 
 // Error handler
 const handleApiError = (error: AxiosError) => {
@@ -86,17 +79,17 @@ api.interceptors.request.use((config) => {
 }, (error) => Promise.reject(error));
 
 // Liveness-related API calls
-export const startLivenessSession = async (): Promise<LivenessResponse> => {
+export const startLivenessSession = async () => {
   try {
     const response = await api.post('/kyc/kyc/start-liveness-session/');
     return response.data;
   } catch (error) {
-    handleApiError(error as AxiosError);
+    console.error('Error starting liveness session:', error);
     throw error;
   }
 };
 
-export const processLiveness = async (sessionId: string, frames: string[]): Promise<LivenessResponse> => {
+export const processLiveness = async (sessionId: string, frames: string[]) => {
   try {
     const response = await api.post('/kyc/kyc/process-liveness/', {
       sessionId,
@@ -104,20 +97,17 @@ export const processLiveness = async (sessionId: string, frames: string[]): Prom
     });
     return response.data;
   } catch (error) {
-    handleApiError(error as AxiosError);
+    console.error('Error processing liveness:', error);
     throw error;
   }
 };
 
-export const checkLiveness = async (sessionId: string, frames: string[]): Promise<LivenessResponse> => {
+export const getSessionResults = async (sessionId: string) => {
   try {
-    const response = await api.post('/kyc/kyc/check-liveness/', {
-      sessionId,
-      frames
-    });
+    const response = await api.get(`/kyc/kyc/session-results/?sessionId=${sessionId}`);
     return response.data;
   } catch (error) {
-    handleApiError(error as AxiosError);
+    console.error('Error getting session results:', error);
     throw error;
   }
 };

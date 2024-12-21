@@ -1,142 +1,195 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaceLivenessDetector } from '@aws-amplify/ui-react-liveness';
-import { ThemeProvider } from '@aws-amplify/ui-react';
-import { startLivenessSession, submitKYC } from '../services/api';
+import { startLivenessSession, processLiveness, getSessionResults } from '../services/api';
 import { toast } from 'react-hot-toast';
 import Webcam from 'react-webcam';
 
 interface KYCCameraProps {
-  onSuccess?: (selfieUrl: string) => void;
+  onSuccess: (imageUrl: string) => void;
   onError?: (error: any) => void;
 }
 
 const KYCCamera: React.FC<KYCCameraProps> = ({ onSuccess, onError }) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [capturedFrames, setCapturedFrames] = useState<string[]>([]);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [frames, setFrames] = useState<string[]>([]);
   const webcamRef = React.useRef<Webcam>(null);
-
-  // Capture frames during liveness detection
-  const captureFrameDuringLiveness = useCallback(() => {
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-      if (imageSrc) {
-        setCapturedFrames(prev => [...prev, imageSrc]);
-      }
-    }
-  }, []);
-
-  // Select the best frame (middle frame or highest quality)
-  const selectBestFrame = useCallback((frames: string[]) => {
-    if (frames.length === 0) return null;
-    
-    // Select middle frame as a simple selection strategy
-    const middleIndex = Math.floor(frames.length / 2);
-    return frames[middleIndex];
-  }, []);
+  const [status, setStatus] = useState<'idle' | 'capturing' | 'processing' | 'success' | 'error'>('idle');
 
   // Initialize liveness session
   useEffect(() => {
-    const initializeLivenessSession = async () => {
+    const initSession = async () => {
       try {
+        setStatus('processing');
         const response = await startLivenessSession();
-        setSessionId(response.sessionId);
-        setLoading(false);
-        toast.success('Liveness session initialized');
-      } catch (error) {
-        console.error('Failed to start liveness session:', error);
-        toast.error('Failed to initialize liveness session');
-        setLoading(false);
-        
-        if (onError) {
-          onError(error);
+        if (response.sessionId) {
+          setSessionId(response.sessionId);
+          setStatus('idle');
+          toast.success('Session initialized');
         }
+      } catch (error) {
+        console.error('Session initialization failed:', error);
+        setStatus('error');
+        toast.error('Failed to initialize session');
+        if (onError) onError(error);
       }
     };
 
-    initializeLivenessSession();
+    initSession();
   }, [onError]);
 
-  // Handle analysis complete
-  const handleAnalysisComplete = useCallback(async () => {
-    try {
-      // Select the best frame
-      const bestFrame = selectBestFrame(capturedFrames);
-      
-      if (!bestFrame) {
-        throw new Error('No frames captured');
-      }
+  // Capture frames
+  const captureFrames = useCallback(async () => {
+    if (!webcamRef.current || !sessionId) return;
+    
+    setStatus('capturing');
+    const capturedFrames: string[] = [];
 
-      // Submit KYC with the best frame
-      const kycResponse = await submitKYC(bestFrame);
-      
-      toast.success('KYC submission successful');
-      
-      // Call success callback if provided
-      if (onSuccess) {
-        onSuccess(kycResponse.selfieUrl || bestFrame);
+    for (let i = 0; i < 5; i++) {
+      const frame = webcamRef.current.getScreenshot();
+      if (frame) {
+        capturedFrames.push(frame);
+      }
+      await new Promise(resolve => setTimeout(resolve, 200)); // Capture every 200ms
+    }
+
+    setFrames(capturedFrames);
+    return capturedFrames;
+  }, [sessionId]);
+
+  // Process liveness
+  const processLivenessCheck = useCallback(async (capturedFrames: string[]) => {
+    if (!sessionId) return;
+
+    try {
+      setStatus('processing');
+      const result = await processLiveness(sessionId, capturedFrames);
+
+      if (result.isLive) {
+        // Get the best frame (middle frame)
+        const bestFrame = capturedFrames[Math.floor(capturedFrames.length / 2)];
+        setStatus('success');
+        onSuccess(bestFrame);
+        toast.success('Verification successful!');
+      } else {
+        setStatus('error');
+        toast.error('Verification failed. Please try again.');
+        if (onError) onError(new Error('Liveness check failed'));
       }
     } catch (error) {
-      console.error('KYC submission error:', error);
-      toast.error('KYC submission failed');
-      
-      if (onError) {
-        onError(error);
+      console.error('Liveness processing failed:', error);
+      setStatus('error');
+      toast.error('Verification failed');
+      if (onError) onError(error);
+    }
+  }, [sessionId, onSuccess, onError]);
+
+  // Start capture process
+  const startCapture = useCallback(async () => {
+    if (isCapturing) return;
+
+    try {
+      setIsCapturing(true);
+      const capturedFrames = await captureFrames();
+      if (capturedFrames && capturedFrames.length > 0) {
+        await processLivenessCheck(capturedFrames);
       }
+    } catch (error) {
+      console.error('Capture process failed:', error);
+      setStatus('error');
+      toast.error('Capture failed');
+      if (onError) onError(error);
+    } finally {
+      setIsCapturing(false);
     }
-  }, [capturedFrames, selectBestFrame, onSuccess, onError]);
+  }, [isCapturing, captureFrames, processLivenessCheck, onError]);
 
-  // Error handler
-  const handleError = (error: any) => {
-    console.error('Liveness detection error:', error);
-    toast.error('Liveness detection failed');
-    
-    if (onError) {
-      onError(error);
+  // Auto-start capture when session is ready
+  useEffect(() => {
+    if (sessionId && status === 'idle') {
+      startCapture();
     }
-  };
-
-  if (loading || !sessionId) {
-    return <div>Initializing liveness session...</div>;
-  }
+  }, [sessionId, status, startCapture]);
 
   return (
-    <div className="relative">
-      {/* Hidden webcam for frame capture */}
-      <Webcam
-        ref={webcamRef}
-        screenshotFormat="image/jpeg"
-        videoConstraints={{
-          width: 1280,
-          height: 720,
-          facingMode: "user"
-        }}
-        className="hidden"
-      />
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+      <div className="space-y-6">
+        {/* Camera View */}
+        <div className="relative">
+          <div className="rounded-xl overflow-hidden shadow-inner bg-gray-100">
+            <Webcam
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              mirrored={false}
+              className="w-full rounded-xl"
+              videoConstraints={{
+                width: 1280,
+                height: 720,
+                facingMode: "user"
+              }}
+            />
+          </div>
 
-      <ThemeProvider>
-        <FaceLivenessDetector
-          sessionId={sessionId}
-          region="us-east-1" // Replace with your AWS region
-          onAnalysisComplete={handleAnalysisComplete}
-          onError={handleError}
-          // Capture frames during liveness detection
-          config={{
-            onFrame: captureFrameDuringLiveness
-          }}
-          components={{
-            PhotosensitiveWarning: () => (
-              <div className="bg-yellow-100 p-4 rounded">
-                <p>This verification involves color changes. Please be cautious if you are photosensitive.</p>
+          {/* Status Overlay */}
+          {status !== 'idle' && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-xl">
+              <div className="text-center space-y-3 p-4 bg-white bg-opacity-90 rounded-lg">
+                {status === 'capturing' && (
+                  <>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="text-blue-800 font-medium">Capturing...</p>
+                  </>
+                )}
+                {status === 'processing' && (
+                  <>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto"></div>
+                    <p className="text-yellow-800 font-medium">Processing...</p>
+                  </>
+                )}
+                {status === 'success' && (
+                  <>
+                    <div className="text-green-500">✓</div>
+                    <p className="text-green-800 font-medium">Success!</p>
+                  </>
+                )}
+                {status === 'error' && (
+                  <>
+                    <div className="text-red-500">×</div>
+                    <p className="text-red-800 font-medium">Failed. Please try again.</p>
+                    <button
+                      onClick={() => {
+                        setStatus('idle');
+                        startCapture();
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                      Retry
+                    </button>
+                  </>
+                )}
               </div>
-            ),
-          }}
-          displayText={{
-            startScreenBeginCheckText: 'Start Verification',
-            hintCenterFaceText: 'Position your face in the oval',
-          }}
-        />
-      </ThemeProvider>
+            </div>
+          )}
+
+          {/* Face Guide Overlay */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-64 h-64 border-2 border-blue-400 border-opacity-50 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Instructions */}
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h3 className="text-blue-800 font-semibold mb-2">Instructions:</h3>
+          <ul className="text-blue-700 text-sm space-y-1">
+            <li>• Ensure your face is well-lit and clearly visible</li>
+            <li>• Look directly at the camera</li>
+            <li>• Keep your face centered in the circle</li>
+            <li>• Remove any sunglasses or face coverings</li>
+            <li>• Stay still during the verification process</li>
+          </ul>
+        </div>
+      </div>
     </div>
   );
 };
